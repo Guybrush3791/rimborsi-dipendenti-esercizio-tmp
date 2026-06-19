@@ -118,7 +118,7 @@ def riepilogo():
             "imponibile": dati["imponibile"],
             "richieste": dati["richieste"],
             "percentuale_plafond": min(
-                round(dati["esente"] / rules.PLAFOND_MENSILE * 100), 100
+                round(dati["esente"] / rules.plafond_per_mese(mese) * 100), 100
             ),
         }
         for (mese, dipendente), dati in sorted(gruppi.items(), reverse=True)

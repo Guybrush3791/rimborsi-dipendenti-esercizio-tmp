@@ -15,22 +15,30 @@ app.py
 ## Module responsibilities
 
 ### `rules.py`
-Pure constants. Single source of truth for all regulatory parameters (Circolare MEF n. 41/2024). **Update only this file when limits change** — everything else derives from it at runtime.
+Regulatory parameters for two normative regimes (Circolare MEF n. 41/2024 for 2025, n. 18/2026 from 01/01/2026). **Update only this file when limits change** — everything else derives from it at runtime.
 
-Key values:
-- `MASSIMALI_GIORNALIERI` — per-diem caps by category (€/day)
-- `MASSIMALE_KM = 0.42` — mileage rate (€/km)
-- `MASSIMALE_NOTTE = 150.00` — hotel cap (€/night)
-- `PLAFOND_MENSILE = 1200.00` — monthly IRPEF-exemption ceiling per employee
+Versioned cap sets (private):
+- `_MASSIMALI_2025` / `_MASSIMALI_2026` — per-diem caps by category
+- `_MASSIMALE_KM_2025` / `_MASSIMALE_KM_2026` — mileage rate (€/km)
+- `_MASSIMALE_NOTTE_2025` / `_MASSIMALE_NOTTE_2026` — hotel cap (€/night)
+- `_PLAFOND_2025 = 1200.00` / `_PLAFOND_2026 = 1400.00` — monthly IRPEF-exemption ceiling
+
+Public names (always point at current/2026 values — used by templates and the riepilogo route):
+- `MASSIMALI_GIORNALIERI`, `MASSIMALE_KM`, `MASSIMALE_NOTTE`, `PLAFOND_MENSILE`
 - `CATEGORIE_A_GIORNATE` — tuple of categories that use `giorni` as the quantity multiplier
+
+Selector functions:
+- `_caps(d: date)` — returns `(massimali, massimale_km, massimale_notte)` for the cap set applicable to date `d` (boundary: `SOGLIA_2026 = 2026-01-01`)
+- `plafond_per_data(d: date)` — returns the monthly plafond for date `d`
+- `plafond_per_mese(mese: str)` — convenience wrapper; `mese` is `'YYYY-MM'`
 
 ### `validator.py`
 Pure function `valida(richiesta) → (bool, str)`. Returns `(True, "")` or `(False, reason)`. Checks: non-empty `dipendente`, known `categoria`, positive `importo`, valid ISO date, and that the category-specific quantity field (`giorni`/`km`/`notti`) is a positive number.
 
 ### `calculator.py`
 Two pure functions, no side effects:
-- `massimale_teorico(richiesta)` — computes the regulatory cap: `rate × quantity`
-- `calcola(richiesta, esente_gia_riconosciuta) → (quota_esente, quota_imponibile, dettaglio)` — caps the exempt portion first against the theoretical max, then against the remaining monthly cap (`PLAFOND_MENSILE − esente_gia_riconosciuta`)
+- `massimale_teorico(richiesta)` — parses `richiesta["data"]`, calls `rules._caps(d)` to get the date-appropriate rate set, then computes the cap: `rate × quantity`
+- `calcola(richiesta, esente_gia_riconosciuta) → (quota_esente, quota_imponibile, dettaglio)` — caps the exempt portion first against the theoretical max, then against the remaining monthly cap (`rules.plafond_per_data(d) − esente_gia_riconosciuta`). The date determines which plafond applies (2025 or 2026).
 
 ### `storage.py`
 All file I/O. Reads and writes `data/richieste.json`. Key helpers:

@@ -93,6 +93,18 @@ def test_riepilogo_mostra_totali(client):
 
 def test_normativa_mostra_massimali_vigenti(client):
     testo = client.get("/normativa").get_data(as_text=True)
-    assert "46.48" in testo
-    assert "77.47" in testo
-    assert "1200.00" in testo
+    assert "50.00" in testo
+    assert "85.00" in testo
+    assert "1400.00" in testo
+
+
+def test_plafond_mensile_2026(client):
+    # alloggio: 8 notti × 170.00 = 1360 teorico; importo 1350 → esente 1350
+    nuova_richiesta_pasto(client, data="2026-01-15", categoria="alloggio",
+                          notti="8", importo="1350.00", giorni="")
+    # pasto: 8 giorni × 10.00 = 80 teorico; capienza = 1400-1350 = 50 → esente 50, imponibile 30
+    nuova_richiesta_pasto(client, data="2026-01-20", importo="80.00", giorni="8")
+    richieste = storage.carica()
+    assert richieste[0]["quota_esente"] == 1350.00
+    assert richieste[1]["quota_esente"] == 50.00
+    assert richieste[1]["quota_imponibile"] == 30.00
